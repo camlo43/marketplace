@@ -1,0 +1,216 @@
+'use client';
+
+import { use, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Button from '../../../components/Button';
+import CommentSection from '../../../components/CommentSection';
+import { useProducts } from '../../../context/ProductContext';
+import { useCart } from '../../../context/CartContext';
+import { useMessages } from '../../../context/MessageContext';
+import { useAuth } from '../../../context/AuthContext';
+
+export default function ProductPage({ params }) {
+    const { id } = use(params);
+    const { getProduct } = useProducts();
+    const { addToCart } = useCart();
+    const { sendMessage } = useMessages();
+    const { user } = useAuth();
+    const router = useRouter();
+
+    const [product, setProduct] = useState(null);
+    const [messageModalOpen, setMessageModalOpen] = useState(false);
+    const [messageText, setMessageText] = useState('');
+
+    useEffect(() => {
+        const found = getProduct(id);
+        setProduct(found);
+    }, [id, getProduct]);
+
+    const handleAddToCart = () => {
+        addToCart(product);
+        alert('¡Agregado al carrito!');
+    };
+
+    const handleContactSeller = () => {
+        if (!user) {
+            alert('Por favor inicia sesión para contactar al vendedor.');
+            router.push('/login');
+            return;
+        }
+        setMessageModalOpen(true);
+    };
+
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (product.seller && product.seller.id) {
+            sendMessage(product.seller.id, product.id, messageText);
+            alert('¡Mensaje enviado!');
+            setMessageModalOpen(false);
+            setMessageText('');
+        } else {
+            // Fallback for mock products without explicit seller
+            alert('¡Mensaje enviado al vendedor! (Mock)');
+            setMessageModalOpen(false);
+        }
+    };
+
+    if (!product) {
+        return (
+            <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+                <main className="container" style={{ flex: 1, padding: '4rem 0', textAlign: 'center' }}>
+                    Cargando...
+                </main>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <main className="container" style={{ flex: 1, padding: '3rem 1rem', maxWidth: '1200px', margin: '0 auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '500px 1fr', gap: '4rem', alignItems: 'start' }}>
+
+                    {/* Product Image Gallery */}
+                    <div>
+                        <div style={{
+                            backgroundColor: 'var(--gray-100)',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            marginBottom: '1rem',
+                            width: '500px',
+                            height: '500px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid var(--gray-200)'
+                        }}>
+                            <img
+                                src={product.image}
+                                alt={product.title}
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'contain',
+                                    padding: '20px'
+                                }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} style={{
+                                    width: '80px',
+                                    height: '80px',
+                                    backgroundColor: 'var(--gray-100)',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    border: '1px solid var(--gray-300)'
+                                }}></div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Product Details */}
+                    <div>
+                        <div style={{ marginBottom: '1rem', color: 'var(--primary-red)', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.875rem' }}>
+                            {product.brand} • {product.category}
+                        </div>
+
+                        <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>{product.title}</h1>
+
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <span style={{ color: '#FFD700', fontSize: '1.25rem', marginRight: '0.5rem' }}>★</span>
+                            <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{product.rating || 'N/A'}</span>
+                            <span style={{ color: 'var(--gray-300)', margin: '0 0.5rem' }}>|</span>
+                            <span style={{ color: 'var(--gray-800)' }}>{product.reviews || 0} reseñas</span>
+                            <span style={{ color: 'var(--gray-300)', margin: '0 0.5rem' }}>|</span>
+                            <span style={{
+                                backgroundColor: product.condition === 'New' ? '#E6F4EA' : '#FFF8E1',
+                                color: product.condition === 'New' ? '#1E8E3E' : '#F9A825',
+                                padding: '0.25rem 0.5rem',
+                                borderRadius: '4px',
+                                fontSize: '0.875rem',
+                                fontWeight: 'bold'
+                            }}>
+                                {product.condition}
+                            </span>
+                        </div>
+
+                        <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--primary-red)', marginBottom: '2rem' }}>
+                            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(product.price)}
+                        </div>
+
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h4 style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Descripción</h4>
+                            <p style={{ lineHeight: '1.6', color: 'var(--gray-800)' }}>
+                                {product.description || `Alta calidad ${product.title} compatible con varios modelos. Asegura un rendimiento óptimo y durabilidad.`}
+                            </p>
+                        </div>
+
+                        {product.compatibleCars && (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <h4 style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Autos Compatibles</h4>
+                                <p style={{ color: 'var(--gray-700)' }}>{product.compatibleCars}</p>
+                            </div>
+                        )}
+
+                        {product.usage && (
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h4 style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Uso / Aplicación</h4>
+                                <p style={{ color: 'var(--gray-700)' }}>{product.usage}</p>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+                            <Button onClick={handleAddToCart} style={{ flex: 1, fontSize: '1.1rem' }}>Agregar al Carrito</Button>
+                            <Button onClick={handleContactSeller} variant="outline" style={{ flex: 1, fontSize: '1.1rem' }}>Contactar Vendedor</Button>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+                            <h4 style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Información del Vendedor</h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--black)', color: 'var(--white)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                                    {product.seller ? product.seller.name.charAt(0) : 'A'}
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: 'bold' }}>{product.seller ? product.seller.name : 'AutoParts Pro'}</div>
+                                    <div style={{ fontSize: '0.875rem', color: 'var(--gray-800)' }}>Miembro desde 2023</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <CommentSection
+                    initialComments={[
+                        { id: 101, user: "John Doe", rating: 5, date: "2 days ago", text: "Excellent product! Fits perfectly on my 2018 Civic." },
+                        { id: 102, user: "Jane Smith", rating: 4, date: "1 week ago", text: "Good quality, but shipping took a bit longer than expected." }
+                    ]}
+                />
+            </main>
+
+            {/* Message Modal */}
+            {messageModalOpen && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '90%', maxWidth: '500px' }}>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Contactar Vendedor</h3>
+                        <form onSubmit={handleSendMessage}>
+                            <textarea
+                                style={{ width: '100%', height: '150px', padding: '0.5rem', marginBottom: '1rem', border: '1px solid var(--gray-300)', borderRadius: '4px' }}
+                                placeholder="Escribe tu mensaje aquí..."
+                                value={messageText}
+                                onChange={(e) => setMessageText(e.target.value)}
+                                required
+                            />
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                                <Button type="button" variant="outline" onClick={() => setMessageModalOpen(false)}>Cancelar</Button>
+                                <Button type="submit">Enviar Mensaje</Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
