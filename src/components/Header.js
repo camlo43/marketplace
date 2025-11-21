@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -11,7 +11,14 @@ export default function Header() {
     const { cartCount } = useCart();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isClient, setIsClient] = useState(false);
+
+    // Mark when we're on the client
+    useEffect(() => {
+        setIsClient(true);
+        setSearchQuery(searchParams.get('q') || '');
+    }, [searchParams]);
 
     const handleSearch = () => {
         if (searchQuery.trim()) {
@@ -91,7 +98,7 @@ export default function Header() {
                             alt="Carrito"
                             style={{ width: '70px', height: '50px' }}
                         />
-                        {cartCount > 0 && (
+                        {isClient && cartCount > 0 && (
                             <span style={{
                                 position: 'absolute',
                                 top: '-8px',
@@ -114,7 +121,7 @@ export default function Header() {
 
                     <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--gray-300)' }}></div>
 
-                    {user ? (
+                    {isClient && user ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <Link href="/messages" style={{ fontWeight: '600', color: 'var(--black)', textDecoration: 'none', textTransform: 'uppercase', fontSize: '0.9rem' }}>MENSAJES</Link>
                             <span style={{ fontWeight: '600', textTransform: 'uppercase', fontSize: '0.9rem', color: 'var(--black)' }}>HOLA, {user.name.toUpperCase()}</span>

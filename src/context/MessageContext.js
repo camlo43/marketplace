@@ -7,14 +7,23 @@ const MessageContext = createContext();
 
 export function MessageProvider({ children }) {
     const [messages, setMessages] = useState([]);
+    const [isClient, setIsClient] = useState(false);
     const { user } = useAuth();
 
+    // Mark when we're on the client
     useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    // Load messages from localStorage (client-side only)
+    useEffect(() => {
+        if (!isClient) return;
+
         const storedMessages = localStorage.getItem('messages');
         if (storedMessages) {
             setMessages(JSON.parse(storedMessages));
         }
-    }, []);
+    }, [isClient]);
 
     const sendMessage = (toUserId, productId, content) => {
         if (!user) return false;
@@ -31,7 +40,11 @@ export function MessageProvider({ children }) {
 
         const updatedMessages = [...messages, newMessage];
         setMessages(updatedMessages);
-        localStorage.setItem('messages', JSON.stringify(updatedMessages));
+
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('messages', JSON.stringify(updatedMessages));
+        }
+
         return true;
     };
 
@@ -47,7 +60,10 @@ export function MessageProvider({ children }) {
             m.id === messageId ? { ...m, read: true } : m
         );
         setMessages(updatedMessages);
-        localStorage.setItem('messages', JSON.stringify(updatedMessages));
+
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('messages', JSON.stringify(updatedMessages));
+        }
     };
 
     return (

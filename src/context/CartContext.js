@@ -6,17 +6,29 @@ const CartContext = createContext();
 
 export function CartProvider({ children }) {
     const [cart, setCart] = useState([]);
+    const [isClient, setIsClient] = useState(false);
 
+    // Mark when we're on the client
     useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    // Load cart from localStorage (client-side only)
+    useEffect(() => {
+        if (!isClient) return;
+
         const storedCart = localStorage.getItem('cart');
         if (storedCart) {
             setCart(JSON.parse(storedCart));
         }
-    }, []);
+    }, [isClient]);
 
+    // Save cart to localStorage whenever it changes (client-side only)
     useEffect(() => {
+        if (!isClient) return;
+
         localStorage.setItem('cart', JSON.stringify(cart));
-    }, [cart]);
+    }, [cart, isClient]);
 
     const addToCart = (product) => {
         setCart(prev => {

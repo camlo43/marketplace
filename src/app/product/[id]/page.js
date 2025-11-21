@@ -4,6 +4,7 @@ import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Button from '../../../components/Button';
 import CommentSection from '../../../components/CommentSection';
+import Toast from '../../../components/Toast';
 import { useProducts } from '../../../context/ProductContext';
 import { useCart } from '../../../context/CartContext';
 import { useMessages } from '../../../context/MessageContext';
@@ -20,6 +21,9 @@ export default function ProductPage({ params }) {
     const [product, setProduct] = useState(null);
     const [messageModalOpen, setMessageModalOpen] = useState(false);
     const [messageText, setMessageText] = useState('');
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+    const [toastType, setToastType] = useState('success');
 
     useEffect(() => {
         const found = getProduct(id);
@@ -28,13 +32,17 @@ export default function ProductPage({ params }) {
 
     const handleAddToCart = () => {
         addToCart(product);
-        alert('¡Agregado al carrito!');
+        setToastMessage('¡Producto agregado al carrito!');
+        setToastType('success');
+        setShowToast(true);
     };
 
     const handleContactSeller = () => {
         if (!user) {
-            alert('Por favor inicia sesión para contactar al vendedor.');
-            router.push('/login');
+            setToastMessage('Por favor inicia sesión para contactar al vendedor.');
+            setToastType('info');
+            setShowToast(true);
+            setTimeout(() => router.push('/login'), 1500);
             return;
         }
         setMessageModalOpen(true);
@@ -44,12 +52,16 @@ export default function ProductPage({ params }) {
         e.preventDefault();
         if (product.seller && product.seller.id) {
             sendMessage(product.seller.id, product.id, messageText);
-            alert('¡Mensaje enviado!');
+            setToastMessage('¡Mensaje enviado exitosamente!');
+            setToastType('success');
+            setShowToast(true);
             setMessageModalOpen(false);
             setMessageText('');
         } else {
             // Fallback for mock products without explicit seller
-            alert('¡Mensaje enviado al vendedor! (Mock)');
+            setToastMessage('¡Mensaje enviado al vendedor!');
+            setToastType('success');
+            setShowToast(true);
             setMessageModalOpen(false);
         }
     };
@@ -132,10 +144,55 @@ export default function ProductPage({ params }) {
                             }}>
                                 {product.condition}
                             </span>
+                            {product.discount && product.discount > 0 && (
+                                <>
+                                    <span style={{ color: 'var(--gray-300)', margin: '0 0.5rem' }}>|</span>
+                                    <span style={{
+                                        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                                        color: 'white',
+                                        padding: '0.4rem 0.75rem',
+                                        borderRadius: '6px',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 'bold',
+                                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)'
+                                    }}>
+                                        ¡{product.discount}% DESCUENTO!
+                                    </span>
+                                </>
+                            )}
                         </div>
 
-                        <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--primary-red)', marginBottom: '2rem' }}>
-                            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(product.price)}
+                        <div style={{ marginBottom: '2rem' }}>
+                            {product.discount && product.discount > 0 && (
+                                <div style={{
+                                    fontSize: '1.5rem',
+                                    fontWeight: '500',
+                                    color: 'var(--gray-500)',
+                                    textDecoration: 'line-through',
+                                    marginBottom: '0.5rem'
+                                }}>
+                                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(product.price)}
+                                </div>
+                            )}
+                            <div style={{
+                                fontSize: '2.5rem',
+                                fontWeight: 'bold',
+                                color: product.discount && product.discount > 0 ? '#10B981' : 'var(--primary-red)'
+                            }}>
+                                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                                    product.discount && product.discount > 0 ? product.discountedPrice : product.price
+                                )}
+                            </div>
+                            {product.discount && product.discount > 0 && (
+                                <div style={{
+                                    fontSize: '1rem',
+                                    color: '#10B981',
+                                    fontWeight: '600',
+                                    marginTop: '0.5rem'
+                                }}>
+                                    ¡Ahorras {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(product.price - product.discountedPrice)}!
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ marginBottom: '2rem' }}>
@@ -160,8 +217,20 @@ export default function ProductPage({ params }) {
                         )}
 
                         <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                            <Button onClick={handleAddToCart} style={{ flex: 1, fontSize: '1.1rem' }}>Agregar al Carrito</Button>
-                            <Button onClick={handleContactSeller} variant="outline" style={{ flex: 1, fontSize: '1.1rem' }}>Contactar Vendedor</Button>
+                            <Button onClick={handleAddToCart} style={{ flex: 1, fontSize: '1rem', gap: '0.5rem' }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="9" cy="21" r="1"></circle>
+                                    <circle cx="20" cy="21" r="1"></circle>
+                                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                                </svg>
+                                Agregar al Carrito
+                            </Button>
+                            <Button onClick={handleContactSeller} variant="outline" style={{ flex: 1, fontSize: '1rem', gap: '0.5rem' }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                Contactar Vendedor
+                            </Button>
                         </div>
 
                         <div style={{ borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
@@ -210,6 +279,15 @@ export default function ProductPage({ params }) {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Toast Notification */}
+            {showToast && (
+                <Toast
+                    message={toastMessage}
+                    type={toastType}
+                    onClose={() => setShowToast(false)}
+                />
             )}
         </div>
     );

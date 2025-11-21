@@ -7,9 +7,17 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [users, setUsers] = useState([]);
+    const [isClient, setIsClient] = useState(false);
 
-    // Load user and users list from local storage on mount
+    // Mark when we're on the client
     useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    // Load user and users list from local storage on mount (client-side only)
+    useEffect(() => {
+        if (!isClient) return;
+
         const storedUser = localStorage.getItem('user');
         const storedUsers = localStorage.getItem('users');
 
@@ -19,13 +27,15 @@ export function AuthProvider({ children }) {
         if (storedUsers) {
             setUsers(JSON.parse(storedUsers));
         }
-    }, []);
+    }, [isClient]);
 
     const login = (email, password) => {
         const foundUser = users.find(u => u.email === email && u.password === password);
         if (foundUser) {
             setUser(foundUser);
-            localStorage.setItem('user', JSON.stringify(foundUser));
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('user', JSON.stringify(foundUser));
+            }
             return true;
         }
         return false;
@@ -41,17 +51,22 @@ export function AuthProvider({ children }) {
         const updatedUsers = [...users, newUser];
 
         setUsers(updatedUsers);
-        localStorage.setItem('users', JSON.stringify(updatedUsers));
 
-        // Auto login after signup
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('users', JSON.stringify(updatedUsers));
+            // Auto login after signup
+            localStorage.setItem('user', JSON.stringify(newUser));
+        }
+
         setUser(newUser);
-        localStorage.setItem('user', JSON.stringify(newUser));
         return true;
     };
 
     const logout = () => {
         setUser(null);
-        localStorage.removeItem('user');
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('user');
+        }
     };
 
     return (
