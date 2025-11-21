@@ -17,8 +17,11 @@ function MarketplaceContent() {
         let categories = searchParams.getAll('categories');
         const singleCategory = searchParams.get('category');
 
-        // Support both single category and multiple categories
-        if (singleCategory && !categories.includes(singleCategory)) {
+        // Check if we're filtering for offers (discounts)
+        const showOnlyOffers = singleCategory === 'ofertas';
+
+        // Support both single category and multiple categories (but not for ofertas)
+        if (singleCategory && !categories.includes(singleCategory) && !showOnlyOffers) {
             categories = [...categories, singleCategory];
         }
 
@@ -33,6 +36,11 @@ function MarketplaceContent() {
         };
 
         let result = products.filter(product => {
+            // Filter by Offers (products with discount)
+            if (showOnlyOffers && (!product.discount || product.discount === 0)) {
+                return false;
+            }
+
             // Filter by Search Query
             if (searchQuery) {
                 const normalizedQuery = normalizeText(searchQuery);
@@ -44,8 +52,8 @@ function MarketplaceContent() {
                 }
             }
 
-            // Filter by Category
-            if (categories.length > 0 && !categories.includes(product.category)) {
+            // Filter by Category (skip if showing offers)
+            if (!showOnlyOffers && categories.length > 0 && !categories.includes(product.category)) {
                 return false;
             }
             // Filter by Condition
@@ -100,6 +108,9 @@ function MarketplaceContent() {
         return result;
     }, [searchParams, products, sortBy]);
 
+    // Check if we're showing offers
+    const showingOffers = searchParams.get('category') === 'ofertas';
+
     return (
         <div className="container" style={{ padding: '2rem 1rem' }}>
             <div style={{ display: 'flex', gap: '2rem' }}>
@@ -112,7 +123,15 @@ function MarketplaceContent() {
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                         <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                            Catálogo de Productos ({filteredProducts.length})
+                            {showingOffers ? (
+                                <>
+                                    🔥 Ofertas Especiales ({filteredProducts.length})
+                                </>
+                            ) : (
+                                <>
+                                    Catálogo de Productos ({filteredProducts.length})
+                                </>
+                            )}
                         </h2>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ color: 'var(--gray-800)', fontWeight: '500' }}>Ordenar por:</span>
