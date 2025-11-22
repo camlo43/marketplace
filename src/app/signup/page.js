@@ -9,17 +9,20 @@ export default function SignupPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const { signup } = useAuth();
+    const { signup, loading } = useAuth();
     const router = useRouter();
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const success = signup({ name, email, password });
-        if (success) {
+        setError('');
+
+        const result = await signup({ name, email, password });
+
+        if (result.success) {
             router.push('/');
         } else {
-            setError('User already exists with this email.');
+            setError(result.error || 'Error al registrarse');
         }
     };
 
@@ -58,8 +61,13 @@ export default function SignupPage() {
                         onChange={(e) => setPassword(e.target.value)}
                     />
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem' }}>
-                    Sign Up
+                <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ padding: '0.75rem' }}
+                    disabled={loading}
+                >
+                    {loading ? 'Registrando...' : 'Sign Up'}
                 </button>
             </form>
             <p style={{ marginTop: '1.5rem', textAlign: 'center', color: 'var(--gray-600)' }}>

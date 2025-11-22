@@ -8,17 +8,20 @@ import Link from 'next/link';
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const { login } = useAuth();
+    const { login, loading } = useAuth();
     const router = useRouter();
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const success = login(email, password);
-        if (success) {
+        setError('');
+
+        const result = await login(email, password);
+
+        if (result.success) {
             router.push('/');
         } else {
-            setError('Invalid email or password');
+            setError(result.error || 'Credenciales inválidas');
         }
     };
 
@@ -47,8 +50,13 @@ export default function LoginPage() {
                         onChange={(e) => setPassword(e.target.value)}
                     />
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem' }}>
-                    Log In
+                <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ padding: '0.75rem' }}
+                    disabled={loading}
+                >
+                    {loading ? 'Iniciando sesión...' : 'Log In'}
                 </button>
             </form>
             <p style={{ marginTop: '1.5rem', textAlign: 'center', color: 'var(--gray-600)' }}>
