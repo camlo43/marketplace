@@ -7,6 +7,7 @@ import { CartProvider } from "../context/CartContext";
 import { MessageProvider } from "../context/MessageContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import ChatWindow from "../components/ChatWindow";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,7 @@ export default function RootLayout({ children }) {
                     {children}
                   </main>
                   <Footer />
+                  <ChatWindow />
                 </div>
               </MessageProvider>
             </CartProvider>

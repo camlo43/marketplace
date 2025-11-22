@@ -124,6 +124,7 @@ export default function Header() {
                     {isClient && user ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <Link href="/messages" style={{ fontWeight: '600', color: 'var(--black)', textDecoration: 'none', textTransform: 'uppercase', fontSize: '0.9rem' }}>MENSAJES</Link>
+                            <Link href={`/seller/${user.id}`} style={{ fontWeight: '600', color: 'var(--black)', textDecoration: 'none', textTransform: 'uppercase', fontSize: '0.9rem' }}>MI PERFIL</Link>
                             <span style={{ fontWeight: '600', textTransform: 'uppercase', fontSize: '0.9rem', color: 'var(--black)' }}>HOLA, {user.name.toUpperCase()}</span>
                             <button
                                 onClick={logout}
@@ -156,7 +157,7 @@ export default function Header() {
                         </>
                     )}
                 </nav>
-            </div>
-        </header>
+            </div >
+        </header >
     );
 }

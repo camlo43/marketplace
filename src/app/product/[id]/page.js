@@ -14,13 +14,11 @@ export default function ProductPage({ params }) {
     const { id } = use(params);
     const { getProduct } = useProducts();
     const { addToCart } = useCart();
-    const { sendMessage } = useMessages();
+    const { openChat } = useMessages();
     const { user } = useAuth();
     const router = useRouter();
 
     const [product, setProduct] = useState(null);
-    const [messageModalOpen, setMessageModalOpen] = useState(false);
-    const [messageText, setMessageText] = useState('');
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState('success');
@@ -31,6 +29,7 @@ export default function ProductPage({ params }) {
     }, [id, getProduct]);
 
     const handleAddToCart = () => {
+        console.log('ProductPage: handleAddToCart clicked for product:', product);
         addToCart(product);
         setToastMessage('¡Producto agregado al carrito!');
         setToastType('success');
@@ -45,24 +44,14 @@ export default function ProductPage({ params }) {
             setTimeout(() => router.push('/login'), 1500);
             return;
         }
-        setMessageModalOpen(true);
-    };
 
-    const handleSendMessage = (e) => {
-        e.preventDefault();
         if (product.seller && product.seller.id) {
-            sendMessage(product.seller.id, product.id, messageText);
-            setToastMessage('¡Mensaje enviado exitosamente!');
-            setToastType('success');
-            setShowToast(true);
-            setMessageModalOpen(false);
-            setMessageText('');
+            openChat(product.seller.id, product.seller.name);
         } else {
-            // Fallback for mock products without explicit seller
-            setToastMessage('¡Mensaje enviado al vendedor!');
-            setToastType('success');
+            // Fallback for products without explicit seller
+            setToastMessage('Este producto no tiene un vendedor asignado.');
+            setToastType('error');
             setShowToast(true);
-            setMessageModalOpen(false);
         }
     };
 
@@ -144,7 +133,7 @@ export default function ProductPage({ params }) {
                             }}>
                                 {product.condition}
                             </span>
-                            {product.discount && product.discount > 0 && (
+                            {product.discount > 0 && (
                                 <>
                                     <span style={{ color: 'var(--gray-300)', margin: '0 0.5rem' }}>|</span>
                                     <span style={{
@@ -163,7 +152,7 @@ export default function ProductPage({ params }) {
                         </div>
 
                         <div style={{ marginBottom: '2rem' }}>
-                            {product.discount && product.discount > 0 && (
+                            {product.discount > 0 && (
                                 <div style={{
                                     fontSize: '1.5rem',
                                     fontWeight: '500',
@@ -177,13 +166,13 @@ export default function ProductPage({ params }) {
                             <div style={{
                                 fontSize: '2.5rem',
                                 fontWeight: 'bold',
-                                color: product.discount && product.discount > 0 ? '#10B981' : 'var(--primary-red)'
+                                color: product.discount > 0 ? '#10B981' : 'var(--primary-red)'
                             }}>
                                 {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
-                                    product.discount && product.discount > 0 ? product.discountedPrice : product.price
+                                    product.discount > 0 ? product.discountedPrice : product.price
                                 )}
                             </div>
-                            {product.discount && product.discount > 0 && (
+                            {product.discount > 0 && (
                                 <div style={{
                                     fontSize: '1rem',
                                     color: '#10B981',
@@ -240,7 +229,20 @@ export default function ProductPage({ params }) {
                                     {product.seller ? product.seller.name.charAt(0) : 'A'}
                                 </div>
                                 <div>
-                                    <div style={{ fontWeight: 'bold' }}>{product.seller ? product.seller.name : 'AutoParts Pro'}</div>
+                                    <div style={{ fontWeight: 'bold' }}>
+                                        {product.seller && product.seller.id ? (
+                                            <a
+                                                href={`/seller/${product.seller.id}`}
+                                                style={{ color: 'var(--black)', textDecoration: 'none', cursor: 'pointer' }}
+                                                onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                                                onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                                            >
+                                                {product.seller.name}
+                                            </a>
+                                        ) : (
+                                            product.seller ? product.seller.name : 'AutoParts Pro'
+                                        )}
+                                    </div>
                                     <div style={{ fontSize: '0.875rem', color: 'var(--gray-800)' }}>Miembro desde 2023</div>
                                 </div>
                             </div>
@@ -256,30 +258,7 @@ export default function ProductPage({ params }) {
                 />
             </main>
 
-            {/* Message Modal */}
-            {messageModalOpen && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                }}>
-                    <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '90%', maxWidth: '500px' }}>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Contactar Vendedor</h3>
-                        <form onSubmit={handleSendMessage}>
-                            <textarea
-                                style={{ width: '100%', height: '150px', padding: '0.5rem', marginBottom: '1rem', border: '1px solid var(--gray-300)', borderRadius: '4px' }}
-                                placeholder="Escribe tu mensaje aquí..."
-                                value={messageText}
-                                onChange={(e) => setMessageText(e.target.value)}
-                                required
-                            />
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                <Button type="button" variant="outline" onClick={() => setMessageModalOpen(false)}>Cancelar</Button>
-                                <Button type="submit">Enviar Mensaje</Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+
 
             {/* Toast Notification */}
             {showToast && (

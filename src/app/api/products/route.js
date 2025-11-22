@@ -9,22 +9,37 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const category = searchParams.get('category');
         const search = searchParams.get('q');
+        const sellerId = searchParams.get('seller_id');
 
-        let sql = 'SELECT * FROM Productos WHERE activo = 1';
+        let sql = `
+            SELECT p.*, 
+                   u.Nombre as VendedorNombre, 
+                   u.Apellidos as VendedorApellido,
+                   GROUP_CONCAT(f.Ruta ORDER BY f.Orden ASC SEPARATOR ',') as Imagenes
+            FROM Productos p
+            LEFT JOIN FotosProducto f ON p.ID = f.ProductoID
+            LEFT JOIN Usuarios u ON p.Vendedor = u.ID
+            WHERE p.activo = 1
+        `;
         const params = [];
 
         if (category && category !== 'ofertas') {
-            sql += ' AND Categoria = ?';
+            sql += ' AND p.Categoria = ?';
             params.push(category);
         }
 
+        if (sellerId) {
+            sql += ' AND p.Vendedor = ?';
+            params.push(sellerId);
+        }
+
         if (search) {
-            sql += ' AND (Nombre LIKE ? OR Marca LIKE ? OR Descripcion LIKE ?)';
+            sql += ' AND (p.Nombre LIKE ? OR p.Marca LIKE ? OR p.Descripcion LIKE ?)';
             const searchTerm = `%${search}%`;
             params.push(searchTerm, searchTerm, searchTerm);
         }
 
-        sql += ' ORDER BY ID DESC';
+        sql += ' GROUP BY p.ID ORDER BY p.ID DESC';
 
         const products = await query(sql, params);
 
@@ -32,7 +47,7 @@ export async function GET(request) {
     } catch (error) {
         console.error('Error fetching products:', error);
         return NextResponse.json(
-            { error: 'Error al obtener productos' },
+            { error: 'Error al obtener productos', details: error.message },
             { status: 500 }
         );
     }
@@ -52,7 +67,8 @@ export async function POST(request) {
             Uso,
             Divisa = 'COP',
             Precio,
-            Cantidad
+            Cantidad,
+            images // Array of image paths
         } = body;
 
         // Validaciones básicas
@@ -83,10 +99,22 @@ export async function POST(request) {
             Cantidad
         ]);
 
+        const productId = result.insertId;
+
+        // Insert images if provided
+        if (images && Array.isArray(images) && images.length > 0) {
+            for (let i = 0; i < images.length; i++) {
+                await query(
+                    'INSERT INTO FotosProducto (ProductoID, Ruta, Orden) VALUES (?, ?, ?)',
+                    [productId, images[i], i]
+                );
+            }
+        }
+
         return NextResponse.json(
             {
                 success: true,
-                productId: result.insertId,
+                productId: productId,
                 message: 'Producto creado exitosamente'
             },
             { status: 201 }

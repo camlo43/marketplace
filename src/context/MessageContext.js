@@ -6,68 +6,114 @@ import { useAuth } from './AuthContext';
 const MessageContext = createContext();
 
 export function MessageProvider({ children }) {
-    const [messages, setMessages] = useState([]);
-    const [isClient, setIsClient] = useState(false);
+    const [conversations, setConversations] = useState([]);
+    const [activeChat, setActiveChat] = useState(null); // { userId, userName, messages }
+    const [isChatOpen, setIsChatOpen] = useState(false);
     const { user } = useAuth();
 
-    // Mark when we're on the client
+    // Poll for conversations list
     useEffect(() => {
-        setIsClient(true);
-    }, []);
+        if (!user) return;
 
-    // Load messages from localStorage (client-side only)
-    useEffect(() => {
-        if (!isClient) return;
-
-        const storedMessages = localStorage.getItem('messages');
-        if (storedMessages) {
-            setMessages(JSON.parse(storedMessages));
-        }
-    }, [isClient]);
-
-    const sendMessage = (toUserId, productId, content) => {
-        if (!user) return false;
-
-        const newMessage = {
-            id: Date.now(),
-            from: { id: user.email, name: user.name }, // Using email as ID for simplicity in this mock
-            to: toUserId,
-            productId,
-            content,
-            timestamp: new Date().toISOString(),
-            read: false
+        const fetchConversations = async () => {
+            try {
+                const res = await fetch(`/api/messages?userId=${user.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setConversations(data);
+                }
+            } catch (error) {
+                console.error('Error fetching conversations:', error);
+            }
         };
 
-        const updatedMessages = [...messages, newMessage];
-        setMessages(updatedMessages);
+        fetchConversations();
+        const interval = setInterval(fetchConversations, 5000); // Poll every 5 seconds
 
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('messages', JSON.stringify(updatedMessages));
-        }
+        return () => clearInterval(interval);
+    }, [user]);
 
-        return true;
+    // Poll for active chat messages
+    useEffect(() => {
+        if (!user || !activeChat) return;
+
+        const fetchChatHistory = async () => {
+            try {
+                const res = await fetch(`/api/messages/${activeChat.userId}?currentUserId=${user.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setActiveChat(prev => ({ ...prev, messages: data }));
+                }
+            } catch (error) {
+                console.error('Error fetching chat history:', error);
+            }
+        };
+
+        fetchChatHistory();
+        const interval = setInterval(fetchChatHistory, 3000); // Poll every 3 seconds for active chat
+
+        return () => clearInterval(interval);
+    }, [user, activeChat?.userId]);
+
+    const openChat = (userId, userName) => {
+        setActiveChat({ userId, userName, messages: [] });
+        setIsChatOpen(true);
     };
 
-    const getMessages = () => {
-        if (!user) return [];
-        // Get messages where current user is sender or receiver
-        return messages.filter(m => m.to === user.email || m.from.id === user.email)
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const closeChat = () => {
+        setIsChatOpen(false);
+        setActiveChat(null);
     };
 
-    const markAsRead = (messageId) => {
-        const updatedMessages = messages.map(m =>
-            m.id === messageId ? { ...m, read: true } : m
-        );
-        setMessages(updatedMessages);
+    const sendMessage = async (toUserId, productId, content) => {
+        if (!user) return false;
 
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('messages', JSON.stringify(updatedMessages));
+        try {
+            const res = await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: user.id,
+                    receiverId: toUserId,
+                    productId,
+                    message: content
+                })
+            });
+
+            if (res.ok) {
+                // Optimistic update if chat is open
+                if (activeChat && activeChat.userId === toUserId) {
+                    const newMessage = {
+                        id: Date.now(), // Temp ID
+                        senderId: user.id,
+                        receiverId: toUserId,
+                        text: content,
+                        timestamp: new Date().toISOString(),
+                        ProductoID: productId
+                    };
+                    setActiveChat(prev => ({
+                        ...prev,
+                        messages: [...prev.messages, newMessage]
+                    }));
+                }
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error sending message:', error);
+            return false;
         }
     };
 
     return (
-        <MessageContext.Provider value={{ messages, sendMessage, getMessages, markAsRead }}>
+        <MessageContext.Provider value={{
+            conversations,
+            activeChat,
+            isChatOpen,
+            openChat,
+            closeChat,
+            sendMessage
+        }}>
             {children}
         </MessageContext.Provider>
     );

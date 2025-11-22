@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { mockProducts } from '../data/mockProducts';
 
 const ProductContext = createContext();
 
@@ -10,8 +9,9 @@ const DISCOUNT_OPTIONS = [5, 10, 15];
 const DISCOUNT_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
 
 export function ProductProvider({ children }) {
-    const [products, setProducts] = useState(mockProducts); // Initialize with mockProducts without discounts
+    const [products, setProducts] = useState([]);
     const [isClient, setIsClient] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Mark when we're on the client
     useEffect(() => {
@@ -27,7 +27,7 @@ export function ProductProvider({ children }) {
         const updatedProducts = productList.map(product => ({
             ...product,
             discount: 0,
-            originalPrice: product.price
+            originalPrice: product.Precio
         }));
 
         // Randomly select products for discount
@@ -36,10 +36,10 @@ export function ProductProvider({ children }) {
         for (let i = 0; i < discountCount; i++) {
             const randomDiscount = DISCOUNT_OPTIONS[Math.floor(Math.random() * DISCOUNT_OPTIONS.length)];
             shuffled[i].discount = randomDiscount;
-            shuffled[i].discountedPrice = Math.round(shuffled[i].price * (1 - randomDiscount / 100));
+            shuffled[i].discountedPrice = Math.round(shuffled[i].Precio * (1 - randomDiscount / 100));
         }
 
-        return shuffled.sort((a, b) => a.id - b.id); // Restore original order
+        return shuffled.sort((a, b) => a.ID - b.ID); // Restore original order
     };
 
     // Check if we need to refresh discounts
@@ -53,46 +53,109 @@ export function ProductProvider({ children }) {
         return timeSinceUpdate >= DISCOUNT_INTERVAL;
     };
 
-    // Initialize products from localStorage or mock data (client-side only)
-    useEffect(() => {
-        if (!isClient) return;
+    // Fetch products from MySQL API
+    const fetchProducts = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch('/api/products');
+            const data = await response.json();
 
-        const storedProducts = localStorage.getItem('products');
-        const needsDiscountRefresh = shouldRefreshDiscounts();
 
-        if (storedProducts && !needsDiscountRefresh) {
-            // Use stored products with existing discounts
-            const parsedProducts = JSON.parse(storedProducts);
-            const userCreatedProducts = parsedProducts.filter(p => p.id > 10000);
-            const allProducts = [...mockProducts, ...userCreatedProducts];
+            // Transform MySQL data to match frontend format
+            const transformedProducts = data.map((p, index) => {
+                // Extract image from either FotosProducto (Imagenes) or Especificacion (legacy)
+                let imagePath = '/products/placeholder.jpg';
+                let compatibleCars = p.Especificacion || '';
 
-            // Restore discounts from stored data
-            const productsWithDiscounts = allProducts.map(product => {
-                const stored = parsedProducts.find(p => p.id === product.id);
-                if (stored && stored.discount) {
-                    return {
-                        ...product,
-                        discount: stored.discount,
-                        discountedPrice: stored.discountedPrice,
-                        originalPrice: stored.originalPrice || product.price
-                    };
+                if (p.Imagenes) {
+                    // New system: images from FotosProducto table
+                    const images = p.Imagenes.split(',');
+                    if (images.length > 0) {
+                        imagePath = images[0];
+                    }
+                } else if (p.Especificacion && p.Especificacion.includes('|IMG:')) {
+                    // Legacy system: image stored in Especificacion field
+                    const parts = p.Especificacion.split('|IMG:');
+                    compatibleCars = parts[0];
+                    imagePath = parts[1] || imagePath;
                 }
-                return product;
+
+                const price = parseFloat(p.Precio) || 0;
+
+                return {
+                    id: p.ID,
+                    title: p.Nombre,
+                    price: price,
+                    Precio: price, // Keep both for compatibility
+                    brand: p.Marca,
+                    category: p.Categoria,
+                    condition: p.Estado,
+                    description: p.Descripcion,
+                    usage: p.Uso,
+                    compatibleCars: compatibleCars,
+                    image: imagePath,
+                    rating: 4.5, // Default rating
+                    reviews: Math.floor(Math.random() * 500) + 20, // Random reviews
+                    ID: p.ID, // Keep for sorting
+                    seller: {
+                        id: p.Vendedor,
+                        name: p.VendedorNombre ? `${p.VendedorNombre} ${p.VendedorApellido || ''}`.trim() : 'AutoParts Pro'
+                    }
+                };
             });
 
-            setProducts(productsWithDiscounts);
-        } else {
-            // Apply new random discounts
-            const userCreatedProducts = storedProducts
-                ? JSON.parse(storedProducts).filter(p => p.id > 10000)
-                : [];
-            const allProducts = [...mockProducts, ...userCreatedProducts];
-            const productsWithDiscounts = applyRandomDiscounts(allProducts);
+            // Apply discounts
+            const needsDiscountRefresh = shouldRefreshDiscounts();
+            let productsWithDiscounts;
+
+            // Helper to check if discount map is valid for current products
+            const isMapValid = (map, products) => {
+                if (!map) return false;
+                // Check if at least one current product exists in the map
+                return products.some(p => map[p.id] !== undefined);
+            };
+
+            const storedDiscounts = typeof window !== 'undefined' ? localStorage.getItem('productDiscounts') : null;
+            let discountMap = storedDiscounts ? JSON.parse(storedDiscounts) : null;
+
+            // If we need refresh OR map is invalid/missing for current products -> Recalculate
+            if (needsDiscountRefresh || !isMapValid(discountMap, transformedProducts)) {
+                console.log('Refreshing discounts...');
+                productsWithDiscounts = applyRandomDiscounts(transformedProducts);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('lastDiscountUpdate', Date.now().toString());
+                }
+            } else {
+                // Restore discounts from localStorage
+                productsWithDiscounts = transformedProducts.map(p => ({
+                    ...p,
+                    discount: discountMap[p.id] || 0,
+                    discountedPrice: discountMap[p.id] ? Math.round(p.price * (1 - discountMap[p.id] / 100)) : undefined,
+                    originalPrice: p.price
+                }));
+            }
+
+            // Save discount map
+            if (typeof window !== 'undefined') {
+                const newMap = {};
+                productsWithDiscounts.forEach(p => {
+                    if (p.discount) newMap[p.id] = p.discount;
+                });
+                localStorage.setItem('productDiscounts', JSON.stringify(newMap));
+            }
 
             setProducts(productsWithDiscounts);
-            localStorage.setItem('products', JSON.stringify(productsWithDiscounts));
-            localStorage.setItem('lastDiscountUpdate', Date.now().toString());
+        } catch (error) {
+            console.error('Error fetching products:', error);
+        } finally {
+            setLoading(false);
         }
+    };
+
+    // Load products from MySQL when client is ready
+    useEffect(() => {
+        if (!isClient) return;
+        fetchProducts();
     }, [isClient]);
 
     // Set up interval to refresh discounts every 12 hours
@@ -101,10 +164,7 @@ export function ProductProvider({ children }) {
 
         const checkAndRefreshDiscounts = () => {
             if (shouldRefreshDiscounts()) {
-                const productsWithNewDiscounts = applyRandomDiscounts(products);
-                setProducts(productsWithNewDiscounts);
-                localStorage.setItem('products', JSON.stringify(productsWithNewDiscounts));
-                localStorage.setItem('lastDiscountUpdate', Date.now().toString());
+                fetchProducts();
             }
         };
 
@@ -112,27 +172,31 @@ export function ProductProvider({ children }) {
         const intervalId = setInterval(checkAndRefreshDiscounts, 60 * 1000);
 
         return () => clearInterval(intervalId);
-    }, [products, isClient]);
+    }, [isClient]);
 
-    const addProduct = (product) => {
-        const newProduct = {
-            ...product,
-            id: Date.now(), // Simple ID generation
-            rating: 0,
-            reviews: 0,
-            dateListed: new Date().toISOString(),
-            discount: 0,
-            originalPrice: product.price
-        };
+    const addProduct = async (productData) => {
+        try {
+            const response = await fetch('/api/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(productData),
+            });
 
-        const updatedProducts = [newProduct, ...products];
-        setProducts(updatedProducts);
+            const data = await response.json();
 
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('products', JSON.stringify(updatedProducts));
+            if (response.ok && data.success) {
+                // Refresh products list
+                await fetchProducts();
+                return { success: true, productId: data.productId };
+            } else {
+                return { success: false, error: data.error || 'Error al crear producto' };
+            }
+        } catch (error) {
+            console.error('Error adding product:', error);
+            return { success: false, error: 'Error de conexión' };
         }
-
-        return newProduct;
     };
 
     const getProduct = (id) => {
@@ -140,7 +204,7 @@ export function ProductProvider({ children }) {
     };
 
     return (
-        <ProductContext.Provider value={{ products, addProduct, getProduct }}>
+        <ProductContext.Provider value={{ products, addProduct, getProduct, loading, refreshProducts: fetchProducts }}>
             {children}
         </ProductContext.Provider>
     );

@@ -85,8 +85,8 @@ export default function CartPage() {
                 <div className="animate-slide-up" style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem' }}>
                     {/* Cart Items */}
                     <div>
-                        {cart.map((item) => (
-                            <div key={item.id} style={{ display: 'flex', gap: '1.5rem', padding: '1.5rem', borderBottom: '1px solid var(--gray-200)' }}>
+                        {cart.map((item, index) => (
+                            <div key={`${item.id}-${index}`} style={{ display: 'flex', gap: '1.5rem', padding: '1.5rem', borderBottom: '1px solid var(--gray-200)' }}>
                                 <div style={{ width: '100px', height: '100px', backgroundColor: 'var(--gray-100)', borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
                                     <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 </div>

@@ -24,40 +24,87 @@ export default function SellPage() {
         images: []
     });
 
+    const [files, setFiles] = useState([]);
+    const [uploading, setUploading] = useState(false);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleImageUpload = (e) => {
-        // Mock image upload
-        const files = Array.from(e.target.files);
-        const newImages = files.map(file => URL.createObjectURL(file));
+        const selectedFiles = Array.from(e.target.files);
+        setFiles(prev => [...prev, ...selectedFiles]);
+
+        // Create previews
+        const newImages = selectedFiles.map(file => URL.createObjectURL(file));
         setFormData(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!user) {
-            alert('You must be logged in to sell items.');
+            alert('Debes iniciar sesión para vender productos.');
             router.push('/login');
             return;
         }
 
-        const productData = {
-            ...formData,
-            price: parseFloat(formData.price),
-            seller: {
-                id: user.email,
-                name: user.name
-            },
-            image: formData.images.length > 0 ? formData.images[0] : 'https://placehold.co/400x300?text=No+Image'
-        };
+        setUploading(true);
 
-        addProduct(productData);
-        alert('Product listed successfully!');
-        router.push('/');
+        try {
+            // 1. Upload images first
+            const uploadedImageUrls = [];
+
+            if (files.length > 0) {
+                for (const file of files) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const uploadResponse = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (uploadResponse.ok) {
+                        const data = await uploadResponse.json();
+                        uploadedImageUrls.push(data.url);
+                    } else {
+                        console.error('Error uploading file:', file.name);
+                    }
+                }
+            }
+
+            // 2. Create product with image URLs
+            const productData = {
+                Vendedor: user.id,
+                Nombre: formData.title,
+                Descripcion: formData.description,
+                Estado: formData.condition === 'New' ? 'Nuevo' : formData.condition === 'Used' ? 'Usado' : 'Reacondicionado',
+                Categoria: formData.category,
+                Especificacion: formData.compatibleCars,
+                Marca: formData.brand,
+                Uso: formData.usage,
+                Divisa: 'COP',
+                Precio: parseInt(formData.price),
+                Cantidad: 1,
+                images: uploadedImageUrls // Send array of image paths
+            };
+
+            const result = await addProduct(productData);
+
+            if (result.success) {
+                alert('¡Producto publicado exitosamente!');
+                router.push('/marketplace');
+            } else {
+                alert(result.error || 'Error al publicar el producto');
+            }
+        } catch (error) {
+            console.error('Error listing product:', error);
+            alert('Ocurrió un error al publicar el producto.');
+        } finally {
+            setUploading(false);
+        }
     };
 
     return (

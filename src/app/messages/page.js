@@ -6,10 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function MessagesPage() {
-    const { getMessages, markAsRead } = useMessages();
+    const { conversations, openChat } = useMessages();
     const { user } = useAuth();
     const router = useRouter();
-    const messages = getMessages();
 
     useEffect(() => {
         if (!user) {
@@ -21,38 +20,47 @@ export default function MessagesPage() {
 
     return (
         <div className="container" style={{ padding: '3rem 1rem', maxWidth: '800px' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '2rem' }}>Messages</h1>
+            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '2rem' }}>Mensajes</h1>
 
-            {messages.length === 0 ? (
+            {conversations.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', backgroundColor: 'var(--gray-50)', borderRadius: '8px' }}>
-                    <p style={{ color: 'var(--gray-600)' }}>No messages yet.</p>
+                    <p style={{ color: 'var(--gray-600)' }}>No tienes mensajes aún.</p>
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {messages.map((msg) => (
+                    {conversations.map((conv) => (
                         <div
-                            key={msg.id}
+                            key={conv.id}
                             style={{
                                 padding: '1.5rem',
                                 border: '1px solid var(--gray-200)',
                                 borderRadius: '8px',
-                                backgroundColor: msg.read ? 'var(--white)' : 'var(--gray-50)',
-                                borderLeft: msg.read ? '1px solid var(--gray-200)' : '4px solid var(--primary-red)'
+                                backgroundColor: conv.unread ? 'var(--white)' : 'var(--gray-50)',
+                                borderLeft: conv.unread ? '4px solid var(--primary-red)' : '1px solid var(--gray-200)',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s'
                             }}
-                            onClick={() => markAsRead(msg.id)}
+                            onClick={() => openChat(conv.id, conv.name)}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--gray-100)'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = conv.unread ? 'var(--white)' : 'var(--gray-50)'}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ fontWeight: 'bold' }}>
-                                    {msg.from.id === user.email ? `To: ${msg.to}` : `From: ${msg.from.name}`}
+                                <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                    {conv.name}
                                 </span>
                                 <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-                                    {new Date(msg.timestamp).toLocaleDateString()}
+                                    {new Date(conv.time).toLocaleDateString()} {new Date(conv.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
-                            <div style={{ fontSize: '0.9rem', color: 'var(--gray-600)', marginBottom: '0.5rem' }}>
-                                Product ID: {msg.productId}
-                            </div>
-                            <p style={{ lineHeight: '1.5' }}>{msg.content}</p>
+                            <p style={{
+                                color: conv.unread ? 'var(--black)' : 'var(--gray-600)',
+                                fontWeight: conv.unread ? '600' : '400',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                            }}>
+                                {conv.lastMessage}
+                            </p>
                         </div>
                     ))}
                 </div>

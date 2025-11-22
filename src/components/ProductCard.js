@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export default function ProductCard({ product, style }) {
-    const hasDiscount = product.discount && product.discount > 0;
+    const hasDiscount = Boolean(product.discount && product.discount > 0);
     const displayPrice = hasDiscount ? product.discountedPrice : product.price;
 
     return (

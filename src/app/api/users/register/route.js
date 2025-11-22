@@ -51,7 +51,10 @@ export async function POST(request) {
         // El procedimiento devuelve el ID del nuevo usuario
         const newUserId = result[0][0].NuevoUsuarioID;
 
-        // Obtener el usuario creado
+        // Convertir automáticamente al usuario en vendedor
+        await query('CALL SerVendedor(?)', [newUserId]);
+
+        // Obtener el usuario creado (ahora con vendedor = 1)
         const newUser = await query(
             'SELECT ID, Nombre, Apellidos, correo, vendedor FROM Usuarios WHERE ID = ?',
             [newUserId]
@@ -61,7 +64,7 @@ export async function POST(request) {
             {
                 success: true,
                 user: newUser[0],
-                message: 'Usuario registrado exitosamente'
+                message: 'Usuario registrado exitosamente como vendedor'
             },
             { status: 201 }
         );
